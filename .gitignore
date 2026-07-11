@@ -1,5 +1,8 @@
 dataset/
 data/
+notebooks/dental_seg_prototype.pdf
+verify_pipeline.py
+tree.txt
 
 
 .ipynb_checkpoints/

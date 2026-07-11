@@ -36,7 +36,7 @@ dental-segmentation/
 ├── models/
 │   └── best_model.keras      # Pretrained 3-Stage U-Net weights (~1.8 MB)
 ├── notebooks/
-│   └── dental_segmentation_prototype.ipynb
+│   └── dental_seg_prototype.ipynb
 ├── .gitignore
 ├── requirements.txt
 └── README.md
