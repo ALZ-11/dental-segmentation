@@ -36,14 +36,16 @@ class DentalSegmentationModel(pl.LightningModule):
         x, y = batch # x: (Batch, 3, 256, 256), y: (Batch, 2, 256, 256)
         y_hat = self(x) # logits: (Batch, 2, 256, 256)
         
+        # extract 3D class indices shape (Batch, H, W) for SMP multiclass losses (fix)
+        y_idx = torch.argmax(y, dim=1).long()
+        
         # compute joint loss
-        loss_dice = self.dice_loss(y_hat, y.long())
-        loss_ce = self.ce_loss(y_hat, y.long())
+        loss_dice = self.dice_loss(y_hat, y_idx)
+        loss_ce = self.ce_loss(y_hat, y_idx)
         loss = loss_dice + loss_ce
         
         # compute metrics (extract argmax to map probabilities to discrete class indexes)
         y_hat_idx = torch.argmax(y_hat, dim=1)
-        y_idx = torch.argmax(y, dim=1)
         iou = self.train_iou(y_hat_idx, y_idx)
         
         # log training step parameters
@@ -56,14 +58,16 @@ class DentalSegmentationModel(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         
+        # extract 3D class indices shape (Batch, H, W) for SMP multiclass losses (fix)
+        y_idx = torch.argmax(y, dim=1).long()
+        
         # compute joint loss
-        loss_dice = self.dice_loss(y_hat, y.long())
-        loss_ce = self.ce_loss(y_hat, y.long())
+        loss_dice = self.dice_loss(y_hat, y_idx)
+        loss_ce = self.ce_loss(y_hat, y_idx)
         loss = loss_dice + loss_ce
         
         # compute metrics
         y_hat_idx = torch.argmax(y_hat, dim=1)
-        y_idx = torch.argmax(y, dim=1)
         iou = self.val_iou(y_hat_idx, y_idx)
         
         # log validation step parameters
