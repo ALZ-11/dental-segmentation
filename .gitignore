@@ -3,6 +3,7 @@ data/
 dental_seg_prototype.pdf
 verify_pipeline.py
 tree.txt
+lightning_logs/
 
 
 .ipynb_checkpoints/
