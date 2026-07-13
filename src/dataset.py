@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from PIL import Image
-import config
+from src import config
 
 class DentalDataset(Dataset):
     """

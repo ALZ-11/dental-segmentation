@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
 from torchmetrics.classification import MulticlassJaccardIndex
-import config
+from src import config
 
 class DentalSegmentationModel(pl.LightningModule):
     """
