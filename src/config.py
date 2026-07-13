@@ -20,7 +20,7 @@ TEST_DIR = os.path.join(DATASET_DIR, "test")
 MODEL_NAME = "unet"
 ENCODER_NAME = "resnet34"
 ENCODER_WEIGHTS = "imagenet"
-NUM_CLASSES = 2
+NUM_CLASSES = 5              # (updated to 5 class)
 TARGET_SIZE = (256, 256)
 
 # training hyperparameters

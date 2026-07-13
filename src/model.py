@@ -4,14 +4,14 @@ import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
 from torchmetrics.classification import MulticlassJaccardIndex
-from src import config
+import config
 
 class DentalSegmentationModel(pl.LightningModule):
     """
     PyTorch Lightning Segmentation Module.
     encapsulates SMP U-Net, joint loss (CE + Dice), and performance metrics.
     """
-    def __init__(self):
+    def __init__(self, class_weights: list = None):
         super().__init__()
         # instantiate SMP U-Net model using pre-trained ResNet34 encoder
         self.model = smp.Unet(
@@ -23,7 +23,13 @@ class DentalSegmentationModel(pl.LightningModule):
         
         # define joint loss components: soft cross entropy + overlap dice loss
         self.dice_loss = smp.losses.DiceLoss(mode="multiclass")
-        self.ce_loss = smp.losses.SoftCrossEntropyLoss(smooth_factor=0.0)
+        
+        # if class weights are provided, compile a weighted CrossEntropyLoss
+        if class_weights is not None:
+            self.register_buffer("class_weights_tensor", torch.tensor(class_weights, dtype=torch.float32))
+            self.ce_loss = nn.CrossEntropyLoss(weight=self.class_weights_tensor)
+        else:
+            self.ce_loss = nn.CrossEntropyLoss()
         
         # configure performance metrics (automatically handles Jaccard index argmax checks)
         self.train_iou = MulticlassJaccardIndex(num_classes=config.NUM_CLASSES)
@@ -33,10 +39,10 @@ class DentalSegmentationModel(pl.LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx) -> torch.Tensor:
-        x, y = batch # x: (Batch, 3, 256, 256), y: (Batch, 2, 256, 256)
-        y_hat = self(x) # logits: (Batch, 2, 256, 256)
+        x, y = batch # x: (Batch, 3, 256, 256), y: (Batch, 5, 256, 256)
+        y_hat = self(x) # logits: (Batch, 5, 256, 256)
         
-        # extract 3D class indices shape (Batch, H, W) for SMP multiclass losses (fix)
+        # extract 3D class indices shape (Batch, H, W) for standard losses
         y_idx = torch.argmax(y, dim=1).long()
         
         # compute joint loss
@@ -44,7 +50,7 @@ class DentalSegmentationModel(pl.LightningModule):
         loss_ce = self.ce_loss(y_hat, y_idx)
         loss = loss_dice + loss_ce
         
-        # compute metrics (extract argmax to map probabilities to discrete class indexes)
+        # compute metrics
         y_hat_idx = torch.argmax(y_hat, dim=1)
         iou = self.train_iou(y_hat_idx, y_idx)
         
@@ -58,7 +64,7 @@ class DentalSegmentationModel(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         
-        # extract 3D class indices shape (Batch, H, W) for SMP multiclass losses (fix)
+        # extract 3D class indices shape (Batch, H, W) for standard losses
         y_idx = torch.argmax(y, dim=1).long()
         
         # compute joint loss
@@ -84,11 +90,11 @@ class DentalSegmentationModel(pl.LightningModule):
 if __name__ == "__main__":
     # local module check
     print("[model test] initializing DentalSegmentationModel...")
-    model = DentalSegmentationModel()
+    model = DentalSegmentationModel(class_weights=[0.1, 1.5, 2.0, 1.0, 0.2])
     
     # generate a dummy batch (representing 1 clinical image of size 256x256)
     dummy_batch = torch.randn(1, 3, 256, 256)
     output = model(dummy_batch)
     
-    print(f" -> completed: model output prediction shape: {output.shape} (expected: (1, 2, 256, 256))")
+    print(f" -> completed: model output prediction shape: {output.shape} (expected: (1, 5, 256, 256))")
     print("[model test passed] compile successful.")

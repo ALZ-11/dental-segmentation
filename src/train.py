@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import DataLoader
 from src import config
-from src.dataset import DentalDataset, get_file_pairs
+from src.dataset import DentalDataset, get_file_pairs, compute_global_class_weights
 from src.model import DentalSegmentationModel
 
 def train_pipeline():
@@ -20,12 +20,14 @@ def train_pipeline():
         print("[abort WARNING] no dataset directories found. verification run ended.")
         return
         
+    # compute 5 class global inverse frequency weights dynamically
+    class_weights = compute_global_class_weights(train_masks, config.NUM_CLASSES)
+        
     # instantiate dataset modules
     train_dataset = DentalDataset(train_images, train_masks, is_training=True)
     valid_dataset = DentalDataset(valid_images, valid_masks, is_training=False)
     
     # configure multi-threaded & memory-pinned PyTorch DataLoaders
-    # num_workers are allocated based on available CPU cores (prevent CPU-GPU bottlenecking)
     num_workers = os.cpu_count() if os.cpu_count() else 2
     
     train_loader = DataLoader(
@@ -45,7 +47,8 @@ def train_pipeline():
         pin_memory=True if config.DEVICE == "cuda" else False
     )
     
-    model = DentalSegmentationModel()
+    # initialize model with computed weights
+    model = DentalSegmentationModel(class_weights=class_weights)
     
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
@@ -70,7 +73,7 @@ def train_pipeline():
         log_every_n_steps=10
     )
     
-    print("[training pipeline] handing execution to PyTorch Lightning trainer...")
+    print("[training pipeline] handing execution to PyTorch Lightning Trainer...")
     trainer.fit(model, train_loader, val_loader)
 
 if __name__ == "__main__":

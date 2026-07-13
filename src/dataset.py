@@ -7,7 +7,8 @@ import torch
 from torch.utils.data import Dataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from src import config
+from PIL import Image
+import config
 
 class DentalDataset(Dataset):
     """
@@ -27,7 +28,7 @@ class DentalDataset(Dataset):
                 min_height=config.TARGET_SIZE[0], 
                 min_width=config.TARGET_SIZE[1], 
                 border_mode=cv2.BORDER_CONSTANT, 
-                fill=0,
+                fill=0, 
                 fill_mask=0
             ),
             # division scaling (matches TF image/255.0 baseline)
@@ -52,12 +53,12 @@ class DentalDataset(Dataset):
         image_tensor = transformed["image"]       # shape: (3, H, W)
         mask_tensor = transformed["mask"].long()   # shape: (H, W)
         
-        # binary class mapping: teeth (4) -> 1, others -> 0
-        binary_mask = torch.where(mask_tensor == 4, torch.ones_like(mask_tensor), torch.zeros_like(mask_tensor))
+        # clamp target values to [0, NUM_CLASSES - 1]
+        clamped_mask = torch.clamp(mask_tensor, 0, config.NUM_CLASSES - 1)
         
-        # one-hot encoding conversion: (H, W) -> (Classes=2, H, W)
+        # one-hot encoding conversion: (H, W) -> (Classes, H, W)
         # project the class dim and permute to Channel-First standard for PyTorch
-        mask_onehot = torch.eye(config.NUM_CLASSES)[binary_mask].permute(2, 0, 1)
+        mask_onehot = torch.eye(config.NUM_CLASSES)[clamped_mask].permute(2, 0, 1)
         
         return image_tensor, mask_onehot
 
@@ -73,8 +74,36 @@ def get_file_pairs(directory: str) -> Tuple[List[str], List[str]]:
     return images, masks
 
 
+def compute_global_class_weights(mask_paths: List[str], num_classes: int) -> List[float]:
+    """
+    class-agnostic pre-computation tool.
+    computes true inverse-frequency weights over the entire training subset.
+    """
+    print(f"[preprocessing] computing global class weights over {len(mask_paths)} files for {num_classes} classes...")
+    class_counts = np.zeros(num_classes, dtype=np.int64)
+    
+    for path in mask_paths:
+        mask = Image.open(path).convert('L')
+        mask_np = np.array(mask)
+        
+        # clamp raw values to match network classes
+        clamped_mask = np.clip(mask_np, 0, num_classes - 1)
+        counts = np.bincount(clamped_mask.ravel(), minlength=num_classes)
+        class_counts += counts
+        
+    total_pixels = class_counts.sum()
+    
+    # prevent division by zero if any rare class is absent in split
+    class_counts = np.maximum(class_counts, 1)
+    
+    # calculate inverse frequency weights
+    weights = total_pixels / (num_classes * class_counts.astype(np.float64))
+    print(f" -> true global weights: {weights.tolist()}")
+    return weights.tolist()
+
+
 if __name__ == "__main__":
-    # local module-level test run
+    # local module level test run
     print("[dataset test] running pipeline verification...")
     images, masks = get_file_pairs(config.TRAIN_DIR)
     
@@ -84,5 +113,5 @@ if __name__ == "__main__":
         dataset = DentalDataset(images[:5], masks[:5], is_training=True)
         img, msk = dataset[0]
         print(f" -> completed: sample image tensor shape: {img.shape} (expected: (3, 256, 256))")
-        print(f" -> completed: sample mask tensor shape: {msk.shape} (expected: (2, 256, 256))")
+        print(f" -> completed: sample mask tensor shape: {msk.shape} (expected: (5, 256, 256))")
         print(f" -> tensor data types: image={img.dtype}, mask={msk.dtype}")
