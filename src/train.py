@@ -20,8 +20,8 @@ def train_pipeline():
         print("[abort WARNING] no dataset directories found. verification run ended.")
         return
         
-    # compute 5 class global inverse frequency weights dynamically
-    class_weights = compute_global_class_weights(train_masks, config.NUM_CLASSES)
+    # compute 5 class global inverse frequency weights with smoothing
+    class_weights = compute_global_class_weights(train_masks, config.NUM_CLASSES, config.GAMMA)
         
     # instantiate dataset modules
     train_dataset = DentalDataset(train_images, train_masks, is_training=True)

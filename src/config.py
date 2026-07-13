@@ -27,6 +27,7 @@ TARGET_SIZE = (256, 256)
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-4
 EPOCHS = 20
+GAMMA = 0.35                 # power-law smoothing exponent for stable gradients
 
 # logging config
 print(f"[config loaded] device: {DEVICE.upper()} | local run: {not IS_KAGGLE} | dataset path: {DATASET_DIR}")

@@ -74,12 +74,13 @@ def get_file_pairs(directory: str) -> Tuple[List[str], List[str]]:
     return images, masks
 
 
-def compute_global_class_weights(mask_paths: List[str], num_classes: int) -> List[float]:
+def compute_global_class_weights(mask_paths: List[str], num_classes: int, gamma: float = 0.35) -> List[float]:
     """
-    class-agnostic pre-computation tool.
-    computes true inverse-frequency weights over the entire training subset.
+    class agnostic pre computation tool with power law smoothing.
+    computes inverse frequency weights and applies exponential smoothing 
+    to prevent extreme gradient volatility.
     """
-    print(f"[preprocessing] computing global class weights over {len(mask_paths)} files for {num_classes} classes...")
+    print(f"[preprocessing] computing global class weights over {len(mask_paths)} files for {num_classes} classes (gamma={gamma})...")
     class_counts = np.zeros(num_classes, dtype=np.int64)
     
     for path in mask_paths:
@@ -92,14 +93,19 @@ def compute_global_class_weights(mask_paths: List[str], num_classes: int) -> Lis
         class_counts += counts
         
     total_pixels = class_counts.sum()
+    class_counts = np.maximum(class_counts, 1) # prevent division-by-zero
     
-    # prevent division by zero if any rare class is absent in split
-    class_counts = np.maximum(class_counts, 1)
+    # compute raw inverse frequency weights
+    raw_weights = total_pixels / (num_classes * class_counts.astype(np.float64))
     
-    # calculate inverse frequency weights
-    weights = total_pixels / (num_classes * class_counts.astype(np.float64))
-    print(f" -> true global weights: {weights.tolist()}")
-    return weights.tolist()
+    # apply exponential smoothing (bounds the loss scales)
+    smoothed_weights = np.power(raw_weights, gamma)
+    
+    # normalize relative to the minimum weight
+    normalized_weights = smoothed_weights / np.min(smoothed_weights)
+    
+    print(f" -> smoothed weights: {normalized_weights.tolist()}")
+    return normalized_weights.tolist()
 
 
 if __name__ == "__main__":
