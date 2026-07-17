@@ -1,27 +1,26 @@
 dataset/
 data/
-dental_seg_prototype.pdf
-verify_pipeline.py
-tree.txt
-lightning_logs/
 
+lightning_logs/
+*.ckpt
+*.keras
+dental_seg_prototype.pdf
+
+tree.txt
 
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
-
 
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-
 env/
 venv/
 .venv/
 pip-log.txt
 setup.cfg
-
 
 .DS_Store
 Thumbs.db
