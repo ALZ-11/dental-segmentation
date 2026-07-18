@@ -3,9 +3,14 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import DataLoader
-from src import config
-from src.dataset import DentalDataset, get_file_pairs, compute_global_class_weights
-from src.model import DentalSegmentationModel
+try:
+    from src import config
+    from src.dataset import DentalDataset, get_file_pairs, compute_global_class_weights
+    from src.model import DentalSegmentationModel
+except:
+    import config
+    from dataset import DentalDataset, get_file_pairs, compute_global_class_weights
+    from model import DentalSegmentationModel
 
 def train_pipeline():
     print("[training pipeline] starting pipeline configuration...")
